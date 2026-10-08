@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>趣味五子棋</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; font-family:"Microsoft YaHei","PingFang SC",sans-serif; }
+  body {
+    min-height:100vh; display:flex; align-items:center; justify-content:center;
+    background:radial-gradient(circle at 30% 20%, #5a4a3a, #2b2018 70%);
+  }
+  .wrap { display:flex; gap:24px; align-items:center; padding:20px; }
+
+  /* 右侧操作面板 */
+  .panel {
+    width:250px; background:linear-gradient(180deg,#fff8ea,#f0e2c8);
+    border:3px solid #b07c3a; border-radius:16px; padding:18px 16px;
+    box-shadow:0 12px 30px rgba(0,0,0,.5); text-align:center;
+  }
+  .panel h1 { font-size:22px; color:#7a4a1f; letter-spacing:2px; margin-bottom:4px; }
+  .panel .sub { font-size:12px; color:#a07a4a; margin-bottom:14px; }
+
+  .status {
+    background:#7a4a1f; color:#ffe9c8; border-radius:8px; padding:8px; margin-bottom:14px;
+    font-size:16px; font-weight:bold; min-height:40px; display:flex; align-items:center; justify-content:center;
+  }
+
+  .group { margin-bottom:14px; }
+  .group .gtitle { font-size:13px; color:#8a5a2a; margin-bottom:6px; font-weight:bold; }
+  .btn-row { display:flex; gap:8px; }
+  .btn {
+    flex:1; padding:10px 4px; border:2px solid #b07c3a; border-radius:10px;
+    background:linear-gradient(180deg,#ffd489,#e8a94f); color:#5a3208; font-size:15px; font-weight:bold;
+    cursor:pointer; transition:.15s;
+  }
+  .btn:hover { transform:translateY(-2px); box-shadow:0 4px 12px rgba(0,0,0,.3); }
+  .btn.active { background:linear-gradient(180deg,#7fbf55,#5a9a34); color:#fff; border-color:#4a7f2a; }
+  .btn:disabled { opacity:.5; cursor:not-allowed; transform:none; }
+
+  .big {
+    width:100%; padding:13px; font-size:17px; border-radius:10px; border:2px solid #8a5a2a;
+    background:linear-gradient(180deg,#7a4a1f,#5c3314); color:#ffe9c8; font-weight:bold; cursor:pointer;
+    margin-bottom:8px; transition:.15s;
+  }
+  .big:hover { transform:translateY(-2px); box-shadow:0 5px 14px rgba(0,0,0,.35); }
+
+  .hint { font-size:12px; color:#9a7a50; margin-top:8px; line-height:1.5; }
+
+  /* 开始覆盖层 */
+  .overlay {
+    position:fixed; inset:0; background:rgba(30,20,10,.72); display:flex;
+    align-items:center; justify-content:center; z-index:50;
+  }
+  .overlay.hidden { display:none; }
+  .startbox {
+    background:linear-gradient(180deg,#fff6e2,#eecf9f); border:4px solid #b07c3a; border-radius:20px;
+    padding:34px 40px; text-align:center; width:360px; box-shadow:0 20px 50px rgba(0,0,0,.6);
+  }
+  .startbox h2 { font-size:32px; color:#7a4a1f; letter-spacing:4px; margin-bottom:4px; }
+  .startbox .st-sub { color:#a07a4a; margin-bottom:22px; font-size:13px; }
+  .startbox .label { font-size:14px; color:#8a5a2a; margin:14px 0 8px; font-weight:bold; }
+  .mode-row { display:flex; gap:12px; justify-content:center; }
+  .mode-btn {
+    width:120px; padding:16px 0; border:3px solid #b07c3a; border-radius:14px; cursor:pointer;
+    background:#fff4dd; font-size:16px; font-weight:bold; color:#7a4a1f; transition:.15s;
+  }
+  .mode-btn.active { background:#7fbf55; color:#fff; border-color:#4a7f2a; }
+  .dif-row { display:flex; gap:12px; justify-content:center; }
+  .dif-btn {
+    width:110px; padding:12px 0; border:3px solid #b07c3a; border-radius:12px; cursor:pointer;
+    background:#fff4dd; font-size:15px; font-weight:bold; color:#7a4a1f; transition:.15s;
+  }
+  .dif-btn.active { background:#e8a94f; color:#fff; border-color:#8a5a2a; }
+  .start-go {
+    margin-top:24px; width:100%; padding:14px; font-size:19px; font-weight:bold; letter-spacing:3px;
+    border:2px solid #8a5a2a; border-radius:12px; cursor:pointer;
+    background:linear-gradient(180deg,#7a4a1f,#5c3314); color:#ffe9c8; transition:.15s;
+  }
+  .start-go:hover { transform:translateY(-2px); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <!-- 棋盘 -->
+  <div>
+    <canvas id="board" width="680" height="680" style="border-radius:14px;box-shadow:0 15px 40px rgba(0,0,0,.55);display:block;"></canvas>
+  </div>
+
+  <!-- 右侧面板 -->
+  <div class="panel">
+    <h1>♟ 趣味五子棋</h1>
+    <div class="sub">Gomoku · 五子连珠即胜</div>
+    <div class="status" id="status">等待开始…</div>
+
+    <div class="group">
+      <div class="gtitle">模式</div>
+      <div class="btn-row">
+        <button class="btn" id="btnPVP">双人对战</button>
+        <button class="btn" id="btnAI">人机对战</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="gtitle">人机难度</div>
+      <div class="btn-row">
+        <button class="btn" id="btnEasy">简单</button>
+        <button class="btn" id="btnHard">困难</button>
+      </div>
+    </div>
+
+    <button class="big" id="btnUndo">↩ 悔棋</button>
+    <button class="big" id="btnNew">⟳ 新游戏</button>
+
+    <div class="hint">黑方先行 · 五子连珠即胜<br>人机模式：悔棋会连同电脑一步一起撤回</div>
+  </div>
+</div>
+
+<!-- 开始覆盖层 -->
+<div class="overlay" id="overlay">
+  <div class="startbox">
+    <h2>趣味五子棋</h2>
+    <div class="st-sub">选择一个模式开始游戏</div>
+    <div class="label">游戏模式</div>
+    <div class="mode-row">
+      <button class="mode-btn" id="startPVP">👥 双人对战</button>
+      <button class="mode-btn active" id="startAI">🤖 人机对战</button>
+    </div>
+    <div class="label">人机难度</div>
+    <div class="dif-row">
+      <button class="dif-btn active" id="startEasy">简单</button>
+      <button class="dif-btn" id="startHard">困难</button>
+    </div>
+    <button class="start-go" id="startGo">开始游戏</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+const N = 15;
+const CELL = 42, MARGIN = 46;
+const SIZE = CELL * (N - 1) + MARGIN * 2;   // 680
+
+const cv = document.getElementById("board");
+cv.width = SIZE; cv.height = SIZE;
+const ctx = cv.getContext("2d");
+
+let board = [];          // 0空 1黑 2白
+let current = 1;         // 1黑先行
+let mode = "ai";         // 'pvp' | 'ai'
+let difficulty = "easy"; // 'easy' | 'hard'
+let over = false;
+let winner = 0;
+let thinking = false;
+let history = [];        // [{r,c,p}]
+
+const statusEl = document.getElementById("status");
+const btnPVP = document.getElementById("btnPVP");
+const btnAI  = document.getElementById("btnAI");
+const btnEasy= document.getElementById("btnEasy");
+const btnHard= document.getElementById("btnHard");
+
+// ---------------- 棋盘绘制（橙色木纹） ----------------
+function drawBoard() {
+  // 木纹底
+  const g = ctx.createLinearGradient(0,0,SIZE,SIZE);
+  g.addColorStop(0,"#e8a25a");
+  g.addColorStop(0.5,"#d9843f");
+  g.addColorStop(1,"#c06a2c");
+  ctx.fillStyle = g;
+  ctx.fillRect(0,0,SIZE,SIZE);
+  // 细木纹
+  for (let i=0;i<70;i++){
+    const y = Math.random()*SIZE;
+    ctx.strokeStyle = "rgba(120,60,10,"+(0.04+Math.random()*0.08)+")";
+    ctx.lineWidth = 1+Math.random()*2;
+    ctx.beginPath(); ctx.moveTo(0,y);
+    ctx.bezierCurveTo(SIZE*0.3,y+Math.random()*8-4, SIZE*0.7,y+Math.random()*8-4, SIZE,y+Math.random()*6-3);
+    ctx.stroke();
+  }
+  // 网格线
+  ctx.strokeStyle = "#5c3314";
+  ctx.lineWidth = 1.6;
+  for (let i=0;i<N;i++){
+    const p = MARGIN + i*CELL;
+    ctx.beginPath(); ctx.moveTo(p, MARGIN); ctx.lineTo(p, SIZE-MARGIN); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(MARGIN, p); ctx.lineTo(SIZE-MARGIN, p); ctx.stroke();
+  }
+  // 星位
+  const stars = [3,7,11];
+  ctx.fillStyle = "#5c3314";
+  for (const r of stars) for (const c of stars){
+    ctx.beginPath(); ctx.arc(MARGIN+c*CELL, MARGIN+r*CELL, 5, 0, Math.PI*2); ctx.fill();
+  }
+  // 边线加粗
+  ctx.lineWidth = 3;
+  ctx.strokeRect(MARGIN, MARGIN, (N-1)*CELL, (N-1)*CELL);
+}
+
+function drawStone(r, c, p){
+  const x = MARGIN + c*CELL, y = MARGIN + r*CELL;
+  const R = CELL*0.44;
+  const grd = ctx.createRadialGradient(x-R*0.3, y-R*0.3, R*0.2, x, y, R);
+  if (p === 1){ grd.addColorStop(0,"#555"); grd.addColorStop(1,"#000"); }
+  else { grd.addColorStop(0,"#ffffff"); grd.addColorStop(1,"#c9c9c9"); }
+  ctx.beginPath(); ctx.arc(x,y,R,0,Math.PI*2);
+  ctx.fillStyle = grd; ctx.fill();
+  ctx.lineWidth = 1.5; ctx.strokeStyle = p===1 ? "#000" : "#999"; ctx.stroke();
+}
+
+function redraw(){
+  drawBoard();
+  for (const {r,c,p} of history) drawStone(r,c,p);
+}
+
+// ---------------- 胜负判断 ----------------
+const DIRS = [[1,0],[0,1],[1,1],[1,-1]];
+function checkWin(r,c,p){
+  for (const [dr,dc] of DIRS){
+    let cnt=1;
+    for (let s=1;s<5;s++){ const rr=r+dr*s, cc=c+dc*s; if(rr<0||rr>=N||cc<0||cc>=N||board[rr][cc]!==p)break; cnt++; }
+    for (let s=1;s<5;s++){ const rr=r-dr*s, cc=c-dc*s; if(rr<0||rr>=N||cc<0||cc>=N||board[rr][cc]!==p)break; cnt++; }
+    if (cnt>=5) return true;
+  }
+  return false;
+}
+const full = () => history.length >= N*N;
+
+// ---------------- 局面评估（用于AI） ----------------
+// 对坐标(r,c)在方向(dr,dc)上，沿两边统计连子与开放性，返回该方向价值
+function lineValue(board, r, c, dr, dc){
+  const p = board[r][c];
+  let cnt=1, open=0;
+  for (let s=1;s<6;s++){
+    const rr=r+dr*s, cc=c+dc*s;
+    if(rr<0||rr>=N||cc<0||cc>=N){ break; }
+    if(board[rr][cc]===p){ cnt++; }
+    else { if(board[rr][cc]===0) open++; break; }
+  }
+  for (let s=1;s<6;s++){
+    const rr=r-dr*s, cc=c-dc*s;
+    if(rr<0||rr>=N||cc<0||cc>=N){ break; }
+    if(board[rr][cc]===p){ cnt++; }
+    else { if(board[rr][cc]===0) open++; break; }
+  }
+  return {cnt, open};
+}
+const SCORE_TABLE = [
+  [0,0,0,0,1000000],      // 无连子
+  [0,0,0,50,1000000],
+  [0,0,10,120,1000000],
+  [0,5,80,1000,1000000],
+  [0,20,800,100000,1000000]
+];
+function pointScore(board, r, c, p){
+  let total=0;
+  for (const [dr,dc] of DIRS){
+    const {cnt,open} = lineValue(board,r,c,dr,dc);
+    total += SCORE_TABLE[open][cnt] || 0;
+  }
+  return total;
+}
+
+// 候选落子点：已有棋子周围半径1的空点，按进攻分排序，取前LIMIT
+function getCandidates(board, color){
+  const seen = new Array(N*N).fill(false);
+  const cands = [];
+  for (let r=0;r<N;r++) for (let c=0;c<N;c++){
+    if (board[r][c]!==0){
+      for (let dr=-1;dr<=1;dr++) for (let dc=-1;dc<=1;dc++){
+        const rr=r+dr, cc=c+dc;
+        if(rr<0||rr>=N||cc<0||cc>=N) continue;
+        if(board[rr][cc]===0 && !seen[rr*N+cc]){
+          seen[rr*N+cc]=true;
+          cands.push({r:rr,c:cc,s:pointScore(board,rr,cc,color)+pointScore(board,rr,cc,3-color)});
+        }
+      }
+    }
+  }
+  if (cands.length===0) return [{r:7,c:7,s:0}];
+  cands.sort((a,b)=>b.s-a.s);
+  return cands;
+}
+
+// 简易AI：贪心评分（简单难度）
+function aiEasy(){
+  const cands = getCandidates(board, 2);
+  // 简单模式：60%随机、40%最佳，增加趣味
+  if (Math.random()<0.4) return cands[0];
+  return cands[Math.floor(Math.random()*cands.length)];
+}
+
+// 困难AI：α-β 负极大搜索
+let nodeCount = 0;
+function negamax(b, depth, alpha, beta, color, ply){
+  nodeCount++;
+  const moves = getCandidates(b, color);
+  if (depth===0 || moves.length===0){
+    // 静态评估：color 全局进攻分 - 对手进攻分
+    let s=0;
+    for (const m of moves) s += pointScore(b,m.r,m.c,color);
+    let opp=0;
+    for (let r=0;r<N;r++) for (let c=0;c<N;c++) if(b[r][c]===3-color) opp += pointScore(b,r,c,3-color);
+    return s - opp*0.8;
+  }
+  const top = moves.slice(0, Math.min(moves.length, 8));
+  let best = -Infinity;
+  for (const m of top){
+    b[m.r][m.c] = color;
+    if (checkWin(m.r,m.c,color)){
+      b[m.r][m.c]=0;
+      return 100000000 + depth*1000;
+    }
+    const val = -negamax(b, depth-1, -beta, -alpha, 3-color, ply+1);
+    b[m.r][m.c]=0;
+    if (val>best) best=val;
+    if (best>alpha) alpha=best;
+    if (alpha>=beta) break;
+  }
+  return best;
+}
+function aiHard(){
+  nodeCount=0;
+  const cands = getCandidates(board, 2);
+  const top = cands.slice(0, Math.min(cands.length, 8));
+  let bestMove = top[0], bestVal = -Infinity;
+  for (const m of top){
+    board[m.r][m.c]=2;
+    let val;
+    if (checkWin(m.r,m.c,2)) val = 1000000000;
+    else val = -negamax(board, 3, -Infinity, Infinity, 1, 0);
+    board[m.r][m.c]=0;
+    if (val>bestVal){ bestVal=val; bestMove=m; }
+  }
+  return bestMove;
+}
+
+// ---------------- 落子 ----------------
+function place(r,c,p){
+  board[r][c]=p;
+  history.push({r,c,p});
+  if (checkWin(r,c,p)){ over=true; winner=p; showStatus(); redraw(); return true; }
+  if (full()){ over=true; winner=-1; showStatus(); redraw(); return true; }
+  redraw();
+  return false;
+}
+
+function aiMove(){
+  if (over || thinking || mode!=="ai") return;
+  thinking = true;
+  showStatus();
+  setTimeout(()=>{
+    if (over || mode!=="ai"){ thinking=false; return; }
+    const m = difficulty==="easy" ? aiEasy() : aiHard();
+    thinking=false;
+    if (!place(m.r,m.c,2)){
+      current=1;
+      showStatus();
+    }
+  }, 120);
+}
+
+function playerPlace(r,c){
+  if (over || thinking || board[r][c]!==0) return;
+  if (mode==="ai" && current!==1) return;   // AI模式下玩家执黑
+  if (!place(r,c,current)) {
+    current = current===1 ? 2 : 1;
+    showStatus();
+    if (mode==="ai" && current===2) aiMove();
+  }
+}
+
+// ---------------- 悔棋 ----------------
+function undo(){
+  if (over) return;
+  if (thinking) return;
+  if (mode==="ai"){
+    if (history.length===0) return;
+    // 撤销玩家一步；若AI已落子则连同AI一步一起撤回
+    history.pop();
+    board = emptyBoard();
+    for (const h of history) board[h.r][h.c] = h.p;
+    if (history.length>0 && history[history.length-1].p===2){
+      history.pop();
+      board = emptyBoard();
+      for (const h of history) board[h.r][h.c] = h.p;
+    }
+    current = 1;
+  } else {
+    if (history.length===0) return;
+    history.pop();
+    board = emptyBoard();
+    for (const h of history) board[h.r][h.c] = h.p;
+    current = current===1 ? 2 : 1;
+  }
+  over=false; winner=0;
+  redraw(); showStatus();
+}
+
+// ---------------- 界面 ----------------
+function showStatus(){
+  if (over){
+    if (winner===1) statusEl.textContent = "黑方获胜 🎉";
+    else if (winner===2) statusEl.textContent = "白方获胜 🎉";
+    else statusEl.textContent = "平局";
+    return;
+  }
+  if (thinking){ statusEl.textContent = "电脑思考中…"; return; }
+  const who = current===1 ? "黑方" : "白方";
+  if (mode==="ai" && current===2) statusEl.textContent = who+"（电脑）";
+  else statusEl.textContent = who+" 回合";
+}
+
+function reset(){
+  board = emptyBoard();
+  history = [];
+  current = 1;
+  over = false; winner = 0; thinking = false;
+  redraw(); showStatus();
+}
+function emptyBoard(){
+  const b = [];
+  for (let r=0;r<N;r++){ b.push(new Array(N).fill(0)); }
+  return b;
+}
+
+function setMode(m){
+  mode = m;
+  btnPVP.classList.toggle("active", m==="pvp");
+  btnAI.classList.toggle("active", m==="ai");
+  reset();
+}
+function setDifficulty(d){
+  difficulty = d;
+  btnEasy.classList.toggle("active", d==="easy");
+  btnHard.classList.toggle("active", d==="hard");
+  reset();
+}
+
+// 点击棋盘
+cv.addEventListener("click", e=>{
+  const rect = cv.getBoundingClientRect();
+  const scaleX = SIZE/rect.width, scaleY = SIZE/rect.height;
+  const x = (e.clientX-rect.left)*scaleX;
+  const y = (e.clientY-rect.top)*scaleY;
+  const c = Math.round((x-MARGIN)/CELL);
+  const r = Math.round((y-MARGIN)/CELL);
+  if (r<0||r>=N||c<0||c>=N) return;
+  playerPlace(r,c);
+});
+
+// 开始界面逻辑
+let startMode = "ai", startDiff = "easy";
+document.getElementById("startPVP").addEventListener("click", ()=>{ startMode="pvp"; setSel("startPVP","startAI"); });
+document.getElementById("startAI").addEventListener("click", ()=>{ startMode="ai"; setSel("startAI","startPVP"); });
+document.getElementById("startEasy").addEventListener("click", ()=>{ startDiff="easy"; setSel("startEasy","startHard"); });
+document.getElementById("startHard").addEventListener("click", ()=>{ startDiff="hard"; setSel("startHard","startEasy"); });
+function setSel(on,off){ document.getElementById(on).classList.add("active"); document.getElementById(off).classList.remove("active"); }
+
+document.getElementById("startGo").addEventListener("click", ()=>{
+  setMode(startMode);
+  difficulty = startDiff;
+  btnEasy.classList.toggle("active", startDiff==="easy");
+  btnHard.classList.toggle("active", startDiff==="hard");
+  document.getElementById("overlay").classList.add("hidden");
+});
+
+// 右侧按钮
+btnPVP.addEventListener("click", ()=>setMode("pvp"));
+btnAI.addEventListener("click", ()=>setMode("ai"));
+btnEasy.addEventListener("click", ()=>setDifficulty("easy"));
+btnHard.addEventListener("click", ()=>setDifficulty("hard"));
+document.getElementById("btnUndo").addEventListener("click", undo);
+document.getElementById("btnNew").addEventListener("click", ()=>reset());
+
+// 初始化
+board = emptyBoard();
+redraw();
+showStatus();
+</script>
+</body>
+</html>
